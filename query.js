@@ -125,10 +125,10 @@ const filter = (fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compo
 	mapProps(toReplace(/(T5773|T5831)[ ]+\(.*\)/g, '$1'), 'zsd_tcrrequestname'),
 	mapProps(boldMoreThan(Date.parse((new Date()).toDateString())), 'zsd_commitdate'), 
 	mapProps(dayNdate, 'zsd_commitdate'),
+	matchInProps('active', 'statecode'),
 	fn3,
 	fn2,
 	fn1,
-	matchInProps('active', 'statecode'),
 	toJson(),
 	filterByString(`"zsd_tcrrequestname"`)
 );
