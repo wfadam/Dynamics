@@ -46,6 +46,7 @@ const openAttrs = {
 	'zsd_packagetype': 'PACKAGE',
 	'zsd_testprogamname': 'PROGRAM',
 	'zsd_testtimetestflow': 'FLOW',
+	'zsd_testtime': 'TT',
 	'zsd_currentstagename': 'STAGE',
 	'statuscode': 'STATUS',
 	'URL': 'URL',
@@ -147,7 +148,7 @@ const crHandler = (req, res) => {
 			if(obj[openKey])	return acc +`${openKey}: ${entities.decodeHTML(obj[openKey])}<BR>`; 
 			else return acc;
 		}, '');
-		res.send(`<head><title>${key}&nbsp;&nbsp;${flow || status}&nbsp;&nbsp;${value['zsd_stage']}</title></head>` + msg);
+		res.send(`<head><title>${key}&nbsp;&nbsp;${flow || status}&nbsp;&nbsp;${value['zsd_stage'] || ''}</title></head>` + msg);
 	});
 }
 
@@ -170,40 +171,51 @@ router.route('/json/:crn').get((req, res) => {
 	});
 });
 
+const send = (res, arr) => {
+	res.send(arr.length > 0 
+		? arr.length + '<BR>' + arr.join('<BR>') 
+			: 'nothing');
+}
+
 router.route('/queue/:name').get(async (req, res) => {
 	const arr = await getQueue(req.params.name);
-	res.send(arr.length > 0 ? arr.join('<BR>') : 'nothing');
+	send(res, arr);
 });
 
 router.route('/stage/:name').get(async (req, res) => {
 	const arr = await getStage(req.params.name);
-	res.send(arr.length > 0 ? arr.join('<BR>') : 'nothing');
+	send(res, arr);
+});
+
+router.route('/stage/:name/:category').get(async (req, res) => {
+	const arr = await getStage(req.params.name, req.params.category);
+	send(res, arr);
 });
 
 router.route('/tp/:name').get(async (req, res) => {
 	const arr = await getTp(req.params.name);
-	res.send(arr.length > 0 ? arr.join('<BR>') : 'nothing');
+	send(res, arr);
 });
 
 router.route('/title/:name').get(async (req, res) => {
 	const arr = await getTitle(req.params.name);
-	res.send(arr.length > 0 ? arr.join('<BR>') : 'nothing');
+	send(res, arr);
 });
 
 router.route('/history/:tcr').get(async (req, res) => {
 	let key = tuneNum(req.params.tcr.toUpperCase());
 	const arr = await getHistory(key);
-	res.send(arr.length > 0 ? arr.join('<BR>') : 'nothing');
+	send(res, arr);
 });
 
 router.route('/lab').get(async (req, res) => {
 	const arr = await getLab();
-	res.send(arr.length > 0 ? arr.join('<BR>') : 'nothing');
+	send(res, arr);
 });
 
 router.route('/lab/:lastDays').get(async (req, res) => {
 	const arr = await getLab(req.params.lastDays);
-	res.send(arr.length > 0 ? arr.join('<BR>') : 'nothing');
+	send(res, arr);
 });
 
 router.route('/tcr/:tcr/:fd').get((req, res) => {

@@ -1,7 +1,7 @@
 exports.options = {
 	username: Buffer.from([ 49, 54, 52, 50, 55 ]).toString(),
-	lm_password: Buffer.from( [ 249, 228, 175, 198, 91, 141, 168, 223, 188, 17, 247, 156, 115, 214, 39, 166 ]),
-	nt_password: Buffer.from( [ 236, 51, 85, 233, 147, 29, 8, 118, 189, 223, 228, 92, 183, 26, 109, 78 ])
+	lm_password: Buffer.from( [ 35, 180, 225, 33, 52, 67, 237, 5, 96, 216, 112, 119, 12, 45, 45, 228 ]),
+	nt_password: Buffer.from( [ 14, 185, 60, 209, 123, 62, 77, 87, 228, 4, 128, 196, 115, 42, 189, 76 ])
 };
 
 if(require.main === module) {

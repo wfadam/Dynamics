@@ -69,7 +69,7 @@ if(cluster.isMaster) {
 } else {
 	process.on('message', host => {
 		getStatus(host);
-		setInterval(() => getStatus(host), 15 * 60 * 1000);
+		setInterval(() => getStatus(host), 5 * 60 * 1000);
 	});
 }
 
@@ -123,7 +123,8 @@ const getStatus = async host => {
 
 		const stat = sts.replace(/INIT\'D (READY)*/, '').trim() || 'READY';
 
-		const comboMsg = JSON.stringify(Object.assign(jobj, dbObj, {stat}));
+		//const comboMsg = JSON.stringify(Object.assign(jobj, dbObj, {stat}));
+		const comboMsg = JSON.stringify(Object.assign(jobj, dbObj));
 		const cnt = await client.zaddAsync('lab:log', tsec * 1000, comboMsg);
 		client.quit();
 		if(cnt !== 0) console.log(comboMsg);

@@ -30,7 +30,7 @@ async function look4NewJob() {
 	} catch(e) {
 		console.error(e);
 	}
-	setTimeout(look4NewJob, 90 * ONE_SECOND);
+	setTimeout(look4NewJob, 30 * ONE_SECOND);
 }
 
 async function look4Job() {
@@ -47,7 +47,20 @@ async function look4Job() {
 	} catch(e) {
 		console.error(e);
 	}
-	setTimeout(look4Job, 15 * ONE_MINUTE);
+	setTimeout(look4Job, 10 * ONE_MINUTE);
+};
+
+async function saveDB() {
+	try {
+		const client = redisClient();
+		console.time('saveDB');
+		await client.saveAsync();
+		console.timeEnd('saveDB');
+		client.quit();
+	} catch(e) {
+		console.error(e);
+	}
+	setTimeout(saveDB, 55 * ONE_MINUTE);
 };
 
 async function assignWorker() {
@@ -69,6 +82,7 @@ async function assignWorker() {
 if (cluster.isMaster) {
 	look4Job();
 	look4NewJob();
+	saveDB();
 	for (let i = 0; i < numThd; i++) {
 		cluster.fork();
 	}
@@ -76,4 +90,5 @@ if (cluster.isMaster) {
 	console.log(`Created worker[${process.pid}]`, new Date());
 	assignWorker();
 }
+
 

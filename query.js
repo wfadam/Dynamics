@@ -112,7 +112,7 @@ function colorMatch(expStr, cc = '#DC143C;') {
 	return val => val.match(expStr) ? `<b><span style='color:${cc}'>${val}</span></b>` : val;
 }
 
-const filter = (fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compose(
+const filter = (fn4 = val => val, fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compose(
 	join(' | '),
 	delEmptyColumn(),
 	flatProps('zsd_commitdate', 'crn', 'zsd_testtimetestflow', 'createdby', 'zsd_stage', 'zsd_productdescription', 'zsd_tcrrequestname', 'zsd_assignedte', 'modifiedon'),
@@ -126,11 +126,12 @@ const filter = (fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compo
 	mapProps(boldMoreThan(Date.parse((new Date()).toDateString())), 'zsd_commitdate'), 
 	mapProps(dayNdate, 'zsd_commitdate'),
 	matchInProps('active', 'statecode'),
+	fn4,
 	fn3,
 	fn2,
 	fn1,
-	toJson(),
-	filterByString(`"zsd_tcrrequestname"`)
+	toJson()//,
+//	filterByString(`"zsd_tcrrequestname"`)
 );
 
 
@@ -154,20 +155,21 @@ async function getQueue(people) {
 		const safeMsg = escapeChars(people);
 		return filter(
 			sortByProp('zsd_commitdate'),
-			takeLast(),
-			matchInProps(safeMsg, 'ownerid' ,'createdby' ,'zsd_assignedte' ,'zsd_assignedtpe' ,'zsd_assignedsdsste' ,'zsd_assignedtotpe')
+			matchInProps(safeMsg, 'ownerid' ,'createdby' ,'zsd_assignedte' ,'zsd_assignedtpe' ,'zsd_assignedsdsste' ,'zsd_assignedtotpe'),
+			takeLast()
 		)(arr);
 }
 
-async function getStage(msg) {
+async function getStage(msg, category = '(mt|bi|kgd)') {
 		const client = redisClient();
 		const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
 		client.quit();
 		const safeMsg = escapeChars(msg);
 		return filter(
 			sortByProp('modifiedon'),
-			takeLast(),
-			matchInProps(safeMsg, 'zsd_stage')
+			matchInProps(safeMsg, 'zsd_stage'),
+			matchInProps(category, 'zsd_category'),
+			takeLast()
 		)(arr);
 }
 
@@ -178,8 +180,8 @@ async function getTp(msg) {
 		const safeMsg = escapeChars(msg);
 		return filter(
 			sortByProp('zsd_commitdate'),
-			takeLast(),
-			startsWithInProps(safeMsg, 'zsd_testprogamname')
+			startsWithInProps(safeMsg, 'zsd_testprogamname'),
+			takeLast()
 		)(arr);
 }
 
@@ -190,8 +192,8 @@ async function getTitle(msg) {
 		const safeMsg = escapeChars(msg);
 		return filter(
 			sortByProp('modifiedon'),
-			takeLast(),
-			includesInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname')
+			includesInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
+			takeLast()
 		)(arr);
 }
 
@@ -209,13 +211,13 @@ async function getLab(lastDays = 3) {
 		const client = redisClient();
 		const arr = await client.zrangebyscoreAsync('lab:log', Date.parse(offsetDate(-lastDays)), Date.now()); 
 		const slimArr = arr.map(msg => {
-			let {stat, crn, host, time, zsd_assignedte, zsd_stage, zsd_productdescription, pwd, proName} = JSON.parse(msg);
+			let {crn, host, time, zsd_assignedte, zsd_stage, zsd_productdescription, pwd, proName} = JSON.parse(msg);
 			if(crn) crn = `<a href="/tcr/${crn}">${crn}</a>`
 			if(zsd_stage) zsd_stage = colorMatch(/draft|manager|assigned|submitted/i, '#00FF00;')(zsd_stage);
 			if(zsd_stage) zsd_stage = colorMatch(/development/i, '#FF00FF;')(zsd_stage);
-			if(pwd) pwd = pwd.replace('/home/kei/', '').replace('/home/fsdiag/', '').replace('sandbox/users/', '').replace('sandbox/', '');
-			if(pwd) user = pwd.slice(0, pwd.match('/').index);
-			return [host, stat, timeDiff(time), user, crn || proName, zsd_stage, zsd_assignedte, zsd_productdescription, pwd]
+			if(pwd) pwd = pwd.replace(/\/home\/(kei|fsdiag)\//, '').replace(/sandbox\/(users\/)*/, '');
+			if(pwd) user = pwd.match('/') ? pwd.slice(0, pwd.match('/').index) : pwd;
+			return [host, timeDiff(time), user, crn || proName, zsd_stage, zsd_assignedte, zsd_productdescription, pwd]
 				.filter(fd => fd)
 				.join(' | ')
 				.slice(0, 240);
