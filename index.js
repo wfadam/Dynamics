@@ -30,7 +30,7 @@ async function look4NewJob() {
 	} catch(e) {
 		console.error(e);
 	}
-	setTimeout(look4NewJob, 30 * ONE_SECOND);
+	setTimeout(look4NewJob, 15 * ONE_SECOND);
 }
 
 async function look4Job() {
@@ -47,7 +47,7 @@ async function look4Job() {
 	} catch(e) {
 		console.error(e);
 	}
-	setTimeout(look4Job, 10 * ONE_MINUTE);
+	setTimeout(look4Job, 15 * ONE_MINUTE);
 };
 
 async function saveDB() {

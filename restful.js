@@ -1,6 +1,6 @@
 "use strict"
 const bluebird = require("bluebird");
-const {getQueue, getLab, getStage, getTp, getTitle, getHistory} = require("./query.js");
+const {getQueue, getQueueArray, getLab, getStage, getTp, getTitle, getHistory} = require("./query.js");
 const express = require('express');
 const app = express();
 const redis = require("redis");
@@ -49,6 +49,7 @@ const openAttrs = {
 	'zsd_testtime': 'TT',
 	'zsd_currentstagename': 'STAGE',
 	'statuscode': 'STATUS',
+	'zsd_stagestatus': 'PROGRESS',
 	'URL': 'URL',
 	'zsd_releasetype': 'RELEASE',
 	'zsd_detailscomments': 'REQUEST',
@@ -64,6 +65,7 @@ const openAttrs = {
 	'zsd_assignedtpe': 'PE',
 	'zsd_assignedtotpe': 'TPE',
 	'zsd_commitdate': 'COMMIT',
+	'zsd_forecastdate': 'FORECAST',
 	'zsd_testartdate': 'START',
 	'zsd_teenddate': 'STOP',
 	'modifiedon': 'MODT',
@@ -173,9 +175,15 @@ router.route('/json/:crn').get((req, res) => {
 
 const send = (res, arr) => {
 	res.send(arr.length > 0 
-		? arr.length + '<BR>' + arr.join('<BR>') 
+		? arr.length + '<BR>' + arr.join('<BR>')
+		//? arr.length + '<BR>' + arr.join('<BR>') + '<BR>¯\\_(ツ)_/¯'
 			: 'nothing');
 }
+
+router.route('/list/:name').get(async (req, res) => {
+	const arr = await getQueueArray(req.params.name);
+	send(res, arr);
+});
 
 router.route('/queue/:name').get(async (req, res) => {
 	const arr = await getQueue(req.params.name);

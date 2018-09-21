@@ -4,7 +4,7 @@ bluebird.promisifyAll(redis.RedisClient.prototype);
 bluebird.promisifyAll(redis.Multi.prototype);
 const redisClient = () => redis.createClient(6380, 'localhost');
 const R = require('ramda');
-const dayOfst = -60;
+const dayOfst = -30;
 
 const offsetDate = days => {
 	let past = new Date();
@@ -118,7 +118,7 @@ const filter = (fn4 = val => val, fn3 = val => val, fn2 = val => val, fn1 = val 
 	flatProps('zsd_commitdate', 'crn', 'zsd_testtimetestflow', 'createdby', 'zsd_stage', 'zsd_productdescription', 'zsd_tcrrequestname', 'zsd_assignedte', 'modifiedon'),
 	mapProps(addLocalLink('tcr'), 'crn'),
 	mapProps(addLocalLink('queue'), 'zsd_assignedte', 'createdby'),
-	mapProps(colorMatch(/assigned|submitted/i, '#00FF00;'), 'zsd_stage'), 
+	mapProps(colorMatch(/assigned|submitted|manager/i, '#00FF00;'), 'zsd_stage'), 
 	mapProps(colorMatch(/development/i, '#FF00FF;'), 'zsd_stage'), 
 	mapProps(toReplace(/in progress/ig, ''), 'zsd_stage'),
 	mapProps(toReplace(/[ ]+/g, ' '), 'zsd_productdescription', 'zsd_tcrrequestname'),
@@ -149,83 +149,102 @@ function timeDiff(str) {
 }
 
 async function getQueue(people) {
-		const client = redisClient();
-		const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
-		client.quit();
-		const safeMsg = escapeChars(people);
-		return filter(
-			sortByProp('zsd_commitdate'),
-			matchInProps(safeMsg, 'ownerid' ,'createdby' ,'zsd_assignedte' ,'zsd_assignedtpe' ,'zsd_assignedsdsste' ,'zsd_assignedtotpe'),
-			takeLast()
-		)(arr);
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	client.quit();
+	const safeMsg = escapeChars(people);
+	return filter(
+		sortByProp('zsd_commitdate'),
+		matchInProps(safeMsg, 'ownerid' ,'createdby' ,'zsd_assignedte' ,'zsd_assignedtpe' ,'zsd_assignedsdsste' ,'zsd_assignedtotpe'),
+		takeLast()
+	)(arr);
+}
+
+async function getQueueArray(people) {
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	client.quit();
+	const safeMsg = escapeChars(people);
+	return R.compose(
+		join(' | '),
+		flatProps('crn', 'zsd_stage'),
+		sortByProp('zsd_commitdate'),
+		matchInProps(safeMsg, 'ownerid' ,'createdby' ,'zsd_assignedte' ,'zsd_assignedtpe' ,'zsd_assignedsdsste' ,'zsd_assignedtotpe'),
+		matchInProps('active', 'statecode'),
+		takeLast(),
+		toJson()
+	)(arr);
+
 }
 
 async function getStage(msg, category = '(mt|bi|kgd)') {
-		const client = redisClient();
-		const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
-		client.quit();
-		const safeMsg = escapeChars(msg);
-		return filter(
-			sortByProp('modifiedon'),
-			matchInProps(safeMsg, 'zsd_stage'),
-			matchInProps(category, 'zsd_category'),
-			takeLast()
-		)(arr);
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	client.quit();
+	const safeMsg = escapeChars(msg);
+	return filter(
+		sortByProp('modifiedon'),
+		matchInProps(safeMsg, 'zsd_stage'),
+		matchInProps(category, 'zsd_category'),
+		takeLast()
+	)(arr);
 }
 
 async function getTp(msg) {
-		const client = redisClient();
-		const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
-		client.quit();
-		const safeMsg = escapeChars(msg);
-		return filter(
-			sortByProp('zsd_commitdate'),
-			startsWithInProps(safeMsg, 'zsd_testprogamname'),
-			takeLast()
-		)(arr);
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	client.quit();
+	const safeMsg = escapeChars(msg);
+	return filter(
+		sortByProp('zsd_commitdate'),
+		startsWithInProps(safeMsg, 'zsd_testprogamname'),
+		takeLast()
+	)(arr);
 }
 
 async function getTitle(msg) {
-		const client = redisClient();
-		const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
-		client.quit();
-		const safeMsg = escapeChars(msg);
-		return filter(
-			sortByProp('modifiedon'),
-			includesInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
-			takeLast()
-		)(arr);
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	client.quit();
+	const safeMsg = escapeChars(msg);
+	return filter(
+		sortByProp('modifiedon'),
+		//includesInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
+		matchInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
+		takeLast()
+	)(arr);
 }
 
 async function getHistory(msg) {
-		const client = redisClient();
-		const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
-		client.quit();
-		const safeMsg = escapeChars(msg);
-		return filter(
-			matchInProps(safeMsg, 'crn')
-		)(arr).reverse();
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	client.quit();
+	const safeMsg = escapeChars(msg);
+	return filter(
+		matchInProps(safeMsg, 'crn')
+	)(arr).reverse();
 }
 
 async function getLab(lastDays = 3) {
-		const client = redisClient();
-		const arr = await client.zrangebyscoreAsync('lab:log', Date.parse(offsetDate(-lastDays)), Date.now()); 
-		const slimArr = arr.map(msg => {
-			let {crn, host, time, zsd_assignedte, zsd_stage, zsd_productdescription, pwd, proName} = JSON.parse(msg);
-			if(crn) crn = `<a href="/tcr/${crn}">${crn}</a>`
-			if(zsd_stage) zsd_stage = colorMatch(/draft|manager|assigned|submitted/i, '#00FF00;')(zsd_stage);
-			if(zsd_stage) zsd_stage = colorMatch(/development/i, '#FF00FF;')(zsd_stage);
-			if(pwd) pwd = pwd.replace(/\/home\/(kei|fsdiag)\//, '').replace(/sandbox\/(users\/)*/, '');
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('lab:log', Date.parse(offsetDate(-lastDays)), Date.now()); 
+	const slimArr = arr.map(msg => {
+		let {crn, host, time, zsd_assignedte, zsd_stage, zsd_productdescription, pwd, proName} = JSON.parse(msg);
+		if(crn) crn = `<a href="/tcr/${crn}">${crn}</a>`
+		if(zsd_stage) zsd_stage = colorMatch(/draft|manager|assigned|submitted/i, '#00FF00;')(zsd_stage);
+		if(zsd_stage) zsd_stage = colorMatch(/development/i, '#FF00FF;')(zsd_stage);
+		if(pwd) pwd = pwd.replace(/\/home\/(kei|fsdiag)\//, '').replace(/sandbox\/(users\/)*/, '');
 			if(pwd) user = pwd.match('/') ? pwd.slice(0, pwd.match('/').index) : pwd;
 			return [host, timeDiff(time), user, crn || proName, zsd_stage, zsd_assignedte, zsd_productdescription, pwd]
 				.filter(fd => fd)
 				.join(' | ')
 				.slice(0, 240);
 		});
-		return slimArr.reverse();
+	return slimArr.reverse();
 }
 
 exports.getQueue = getQueue;
+exports.getQueueArray = getQueueArray;
 exports.getLab = getLab;
 exports.getStage = getStage;
 exports.getTp = getTp;
@@ -235,7 +254,7 @@ exports.getHistory = getHistory;
 if(require.main === module) {
 	(async () => {
 		console.time('Query');
-		console.log(await getQueue('Grace Liu'));
+		console.log(await getQueueArray('Grace Liu'));
 		console.timeEnd('Query');
 		process.exit();
 	})();
