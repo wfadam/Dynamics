@@ -4,7 +4,7 @@ bluebird.promisifyAll(redis.RedisClient.prototype);
 bluebird.promisifyAll(redis.Multi.prototype);
 const redisClient = () => redis.createClient(6380, 'localhost');
 const R = require('ramda');
-const dayOfst = -30;
+const dayOfst = -42;
 
 const offsetDate = days => {
 	let past = new Date();
@@ -243,9 +243,35 @@ async function getLab(lastDays = 3) {
 	return slimArr.reverse();
 }
 
+function embedLink(str) {
+	return str.slice(0)
+		.replace(/SCR[ ]*&#8211;[ ]*/ig, 'SCR-')
+		.replace(/SCR[-]*(\d+)[.p]*(\d+)*/ig, `<a href="/scr/SCR-$1.$2">$&</a>`)
+		.replace(/TCR[ ]*&#8211;[ ]*/ig, 'TCR-')
+		.replace(/TCR[-]*(\d+)[.p]*(\d+)*/ig, `<a href="/tcr/TCR-$1.$2">$&</a>`);
+}
+
+async function getTb(name = '', lastDays = 30) {
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:TB', Date.parse(offsetDate(-lastDays)), Date.now(), 'WITHSCORES'); 
+	const rtn = [];
+	const regex = new RegExp(name, 'i');
+	for(let i = 0; i < arr.length; i += 2) {
+		const msg = arr[i];
+		if(name && ! msg.match(regex)) {
+			continue;
+		}
+		const timeStr = new Date(Number(arr[i + 1])).toLocaleString();
+		const {tb, pwd, proName} = JSON.parse(msg);
+		rtn.push([timeDiff(timeStr), embedLink(tb), proName, pwd].join(' | ').slice(0, 180));
+	}
+	return rtn.reverse();
+}
+
 exports.getQueue = getQueue;
 exports.getQueueArray = getQueueArray;
 exports.getLab = getLab;
+exports.getTb = getTb;
 exports.getStage = getStage;
 exports.getTp = getTp;
 exports.getTitle = getTitle;

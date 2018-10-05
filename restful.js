@@ -1,6 +1,6 @@
 "use strict"
 const bluebird = require("bluebird");
-const {getQueue, getQueueArray, getLab, getStage, getTp, getTitle, getHistory} = require("./query.js");
+const {getQueue, getQueueArray, getLab, getTb, getStage, getTp, getTitle, getHistory} = require("./query.js");
 const express = require('express');
 const app = express();
 const redis = require("redis");
@@ -213,6 +213,16 @@ router.route('/title/:name').get(async (req, res) => {
 router.route('/history/:tcr').get(async (req, res) => {
 	let key = tuneNum(req.params.tcr.toUpperCase());
 	const arr = await getHistory(key);
+	send(res, arr);
+});
+
+router.route('/tb').get(async (req, res) => {
+	const arr = await getTb();
+	send(res, arr);
+});
+
+router.route('/tb/:name').get(async (req, res) => {
+	const arr = await getTb(req.params.name);
 	send(res, arr);
 });
 
