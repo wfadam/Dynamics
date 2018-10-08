@@ -209,7 +209,6 @@ async function getTitle(msg) {
 	const safeMsg = escapeChars(msg);
 	return filter(
 		sortByProp('modifiedon'),
-		//includesInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
 		matchInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
 		takeLast()
 	)(arr);
@@ -228,6 +227,7 @@ async function getHistory(msg) {
 async function getLab(lastDays = 3) {
 	const client = redisClient();
 	const arr = await client.zrangebyscoreAsync('lab:log', Date.parse(offsetDate(-lastDays)), Date.now()); 
+	client.quit();
 	const slimArr = arr.map(msg => {
 		let {crn, host, time, zsd_assignedte, zsd_stage, zsd_productdescription, pwd, proName} = JSON.parse(msg);
 		if(crn) crn = `<a href="/tcr/${crn}">${crn}</a>`
@@ -251,27 +251,71 @@ function embedLink(str) {
 		.replace(/TCR[-]*(\d+)[.p]*(\d+)*/ig, `<a href="/tcr/TCR-$1.$2">$&</a>`);
 }
 
-async function getTb(name = '', lastDays = 30) {
-	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:TB', Date.parse(offsetDate(-lastDays)), Date.now(), 'WITHSCORES'); 
-	const rtn = [];
-	const regex = new RegExp(name, 'i');
-	for(let i = 0; i < arr.length; i += 2) {
-		const msg = arr[i];
-		if(name && ! msg.match(regex)) {
-			continue;
-		}
-		const timeStr = new Date(Number(arr[i + 1])).toLocaleString();
-		const {tb, pwd, proName} = JSON.parse(msg);
-		rtn.push([timeDiff(timeStr), embedLink(tb), proName, pwd].join(' | ').slice(0, 180));
+function takeFirstInProp(prop) {
+	return objArr => {
+		const known = new Map();
+		objArr.forEach(j => {
+			if(! known.has(j[prop])) {
+				known.set(j[prop], j);
+			}
+		});
+		return [...known.values()];
 	}
-	return rtn.reverse();
+}
+
+function slice(st, sp) {
+	return str => str.slice(st, sp);
+}
+
+const tbCommonPipe = (fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compose(
+		join(' | '),
+		delEmptyColumn(),
+		flatProps('time', 'tb', 'proName', 'host', 'pwd'), 
+		fn3,
+		fn2,
+		fn1,
+		combine2Json
+	);
+
+function combine2Json(arr = []) {
+	const jArr = [];
+	for(let i = 0; i < arr.length; i += 2) {
+		jArr.push(Object.assign(
+			{time: new Date(Number(arr[i + 1])).toLocaleString()},
+			JSON.parse(arr[i])
+		)); 
+	}
+	return jArr;
+}
+
+async function getNewTb(lastDays = 90) {
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:TB', Date.parse(offsetDate(-lastDays)), Date.now(), 'withscores'); 
+	client.quit();
+
+	return tbCommonPipe(
+		mapProps(addLocalLink('tb'), 'tb'),
+		takeFirstInProp('tb'),
+		mapProps(slice(0, 70), 'pwd')
+	)(arr).reverse();
+}
+
+async function getTb(name = '', lastDays = 90) {
+	const client = redisClient();
+	const arr = await client.zrangebyscoreAsync('TIMELINE:TB', Date.parse(offsetDate(-lastDays)), Date.now(), 'withscores'); 
+	client.quit();
+
+	return tbCommonPipe(
+		mapProps(embedLink, 'tb'),
+		includesInProps(name, 'tb')
+	)(arr).reverse();
 }
 
 exports.getQueue = getQueue;
 exports.getQueueArray = getQueueArray;
 exports.getLab = getLab;
 exports.getTb = getTb;
+exports.getNewTb = getNewTb;
 exports.getStage = getStage;
 exports.getTp = getTp;
 exports.getTitle = getTitle;
@@ -280,7 +324,9 @@ exports.getHistory = getHistory;
 if(require.main === module) {
 	(async () => {
 		console.time('Query');
-		console.log(await getQueueArray('Grace Liu'));
+		//console.log(await getQueueArray('Grace Liu'));
+		console.log(await getTb('tb__332__SCREEN_bl_leak_open_gbc_scr864p0_SH__nvcc'));
+		//console.log(await getNewTb());
 		console.timeEnd('Query');
 		process.exit();
 	})();

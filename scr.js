@@ -41,7 +41,6 @@ global.T31Hosts = [
 	//SDUS--
 	'10.195.225.236',		//T5831_SD2:   
 	'10.195.226.84',		//T5831-SD7
-	'10.71.44.251',			//T5831_SD8:
 	'10.195.225.79',		//T5831_SD9:   
 	'10.195.225.73',		//T5831-SD16:
 	'10.195.225.72',		//T5831_SD18:  
@@ -116,9 +115,9 @@ const getStatus = async host => {
 		}
 
 		const proName = pro.replace('.class', '').replace(/javaapi[./]/, '');
-		const now = Date.now();
+		const msec = Date.now();
 		const scoreMem = [];
-		currFlow.map(tb => JSON.stringify({host, tb, proName, pwd})).forEach(s => scoreMem.push(now, s));
+		currFlow.map(tb => JSON.stringify({host, tb, proName, pwd})).forEach(s => scoreMem.push(msec, s));
 
 		const client = redisClient();
 		const rtn = await client.zaddAsync('TIMELINE:TB', 'NX', ...scoreMem); 
