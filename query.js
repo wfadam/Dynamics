@@ -1,10 +1,11 @@
 const redis = require('redis');
 const bluebird = require('bluebird');
+const path = require('path');
 bluebird.promisifyAll(redis.RedisClient.prototype);
 bluebird.promisifyAll(redis.Multi.prototype);
 const redisClient = () => redis.createClient(6380, 'localhost');
 const R = require('ramda');
-const dayOfst = -42;
+const dayOfst = -30;
 
 const offsetDate = days => {
 	let past = new Date();
@@ -102,7 +103,7 @@ function mapProps(fn, ...props) {
 	});
 };
 
-const toReplace = (from, to) => str => str.replace(from, to);
+const replace = (from, to) => str => str.replace(from, to);
 
 function boldMoreThan(limit, fontSize = 4) {
 	return val => Date.parse(val) >= limit ? `<b><font size=${fontSize}>${val}</font></b>` : val;
@@ -115,14 +116,14 @@ function colorMatch(expStr, cc = '#DC143C;') {
 const filter = (fn4 = val => val, fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compose(
 	join(' | '),
 	delEmptyColumn(),
-	flatProps('zsd_commitdate', 'crn', 'zsd_testtimetestflow', 'createdby', 'zsd_stage', 'zsd_productdescription', 'zsd_tcrrequestname', 'zsd_assignedte', 'modifiedon'),
+	flatProps('zsd_commitdate', 'crn', 'zsd_testtimetestflow', 'createdby', 'zsd_stage', 'zsd_screquestname', 'zsd_productdescription', 'zsd_tcrrequestname', 'zsd_assignedte', 'modifiedon'),
 	mapProps(addLocalLink('tcr'), 'crn'),
 	mapProps(addLocalLink('queue'), 'zsd_assignedte', 'createdby'),
 	mapProps(colorMatch(/assigned|submitted|manager/i, '#00FF00;'), 'zsd_stage'), 
 	mapProps(colorMatch(/development/i, '#FF00FF;'), 'zsd_stage'), 
-	mapProps(toReplace(/in progress/ig, ''), 'zsd_stage'),
-	mapProps(toReplace(/[ ]+/g, ' '), 'zsd_productdescription', 'zsd_tcrrequestname'),
-	mapProps(toReplace(/(T5773|T5831)[ ]+\(.*\)/g, '$1'), 'zsd_tcrrequestname'),
+	mapProps(replace(/in progress/ig, ''), 'zsd_stage'),
+	mapProps(replace(/[ ]+/g, ' '), 'zsd_productdescription', 'zsd_tcrrequestname'),
+	mapProps(replace(/(T5773|T5831)[ ]+\(.*\)/g, '$1'), 'zsd_tcrrequestname'),
 	mapProps(boldMoreThan(Date.parse((new Date()).toDateString())), 'zsd_commitdate'), 
 	mapProps(dayNdate, 'zsd_commitdate'),
 	matchInProps('active', 'statecode'),
@@ -209,7 +210,8 @@ async function getTitle(msg) {
 	const safeMsg = escapeChars(msg);
 	return filter(
 		sortByProp('modifiedon'),
-		matchInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
+		includesInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
+		//matchInProps(safeMsg, 'zsd_purpose', 'zsd_tcrrequestname', 'zsd_productdescription', 'zsd_screquestname'),
 		takeLast()
 	)(arr);
 }
@@ -255,8 +257,8 @@ function takeFirstInProp(prop) {
 	return objArr => {
 		const known = new Map();
 		objArr.forEach(j => {
-			if(! known.has(j[prop])) {
-				known.set(j[prop], j);
+			if(! known.has(j[prop].toUpperCase())) {
+				known.set(j[prop].toUpperCase(), j);
 			}
 		});
 		return [...known.values()];
@@ -267,10 +269,17 @@ function slice(st, sp) {
 	return str => str.slice(st, sp);
 }
 
-const tbCommonPipe = (fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compose(
+const toZipFileName = (str = '') => path.basename(path.dirname(str));
+const pickUserName = (str = '') => str.replace(/(\/(home|kei|fsdiag|sandbox|users))*/, '').split('/')[1];
+const pickUserNZipName = (str = '') => [pickUserName(str), toZipFileName(str)].join('/');
+const sortByScrNum = (arr = []) => arr.sort((a, b) => scrNum(b['tb']) - scrNum(a['tb']));
+
+const tbCommonPipe = (fn5 = val => val, fn4 = val => val, fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compose(
 		join(' | '),
 		delEmptyColumn(),
-		flatProps('time', 'tb', 'proName', 'host', 'pwd'), 
+		flatProps('time', 'tb', 'pwd'),  //'host'
+		fn5,
+		fn4,
 		fn3,
 		fn2,
 		fn1,
@@ -288,29 +297,43 @@ function combine2Json(arr = []) {
 	return jArr;
 }
 
-async function getNewTb(lastDays = 90) {
+function scrNum(str = '') {
+	const obj = str.match(/(scr([0-9]+))(p([0-9]+))*/i);
+	if(! obj) return Number('0');
+	const intChar = obj['2'];
+	const floatChar = obj['4'] || '0';
+	return Number(`${intChar}.${floatChar}`);
+};
+
+async function getNewTb(lastDays = 15) {
 	const client = redisClient();
 	const arr = await client.zrangebyscoreAsync('TIMELINE:TB', Date.parse(offsetDate(-lastDays)), Date.now(), 'withscores'); 
 	client.quit();
 
 	return tbCommonPipe(
 		mapProps(addLocalLink('tb'), 'tb'),
+		//mapProps(embedLink, 'tb'),
+		mapProps(pickUserNZipName, 'pwd'),
+		sortByScrNum,
 		takeFirstInProp('tb'),
-		mapProps(slice(0, 70), 'pwd')
-	)(arr).reverse();
+		includesInProps('(scr([0-9]+))(p([0-9]+))*', 'tb')
+	)(arr);
 }
 
-async function getTb(name = '', lastDays = 90) {
+async function getTb(name = '', lastDays = 15) {
 	const client = redisClient();
 	const arr = await client.zrangebyscoreAsync('TIMELINE:TB', Date.parse(offsetDate(-lastDays)), Date.now(), 'withscores'); 
 	client.quit();
 
 	return tbCommonPipe(
+		//mapProps(replace(/(\/(home|kei|fsdiag|sandbox|users))*/, ''), 'pwd'),
+		mapProps(pickUserNZipName, 'pwd'),
 		mapProps(embedLink, 'tb'),
-		includesInProps(name, 'tb')
+		includesInProps(name, 'tb', 'pwd')
 	)(arr).reverse();
 }
 
+exports.getDayOfst = () => dayOfst;
 exports.getQueue = getQueue;
 exports.getQueueArray = getQueueArray;
 exports.getLab = getLab;
@@ -324,9 +347,9 @@ exports.getHistory = getHistory;
 if(require.main === module) {
 	(async () => {
 		console.time('Query');
-		//console.log(await getQueueArray('Grace Liu'));
-		console.log(await getTb('tb__332__SCREEN_bl_leak_open_gbc_scr864p0_SH__nvcc'));
-		//console.log(await getNewTb());
+		//console.log(await getQueue('Grace Liu'));
+		//console.log(await getTb('tb__437__SCREEN_column_pointer_VDD_p4m4_DDR_200MHz_scr997p1__nvcc'));
+		console.log(await getNewTb());
 		console.timeEnd('Query');
 		process.exit();
 	})();

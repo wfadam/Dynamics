@@ -4,7 +4,8 @@ const httpntlm = require('httpntlm');
 const getAge = (...strs) => Math.abs(Date.parse(strs[0]) - Date.parse(strs[1]));
 const url = otype => `http://dynamics.sandisk.com/Dynamics/_root/homepage.aspx?etc=${otype}&pagemode=iframe`;
 const isDate = str => str.match(/^\d+/) && str.match(/ (AM|PM)$/);
-const isCRNum = str => str.match(/^[TS]CR-\d+\.\d+$/);
+//const isCRNum = str => str.match(/^[TS]CR-\d+\.\d+$/);
+const isCRNum = str => str.match(/^[TS]CR-\d+(\.(\w+))+$/);
 const isOID = str => str.match(/^{[0-9A-Z-]+}$/);
 const isInterested = msg => isDate(msg) || isCRNum(msg) || isOID(msg); 
 const removeCurly = str => str.slice(1, -1);
@@ -34,10 +35,9 @@ function parsePage(otype) {
 	return new Promise((resolve, reject) => {
 		httpntlm.get(Object.assign({url: url(otype)}, options), 
 			(err, res) => {
-				if(err)	return reject(err);
-				return res['statusCode'] === 200 
-					? resolve(getCellMatrix(otype, res.body))
-					: reject(JSON.stringify(res));
+				return res['statusCode'] === 200
+					?	resolve(getCellMatrix(otype, res.body))
+					: reject(err, res);
 			});
 	});
 }

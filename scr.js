@@ -28,6 +28,10 @@ global.T73Hosts = [
 	'10.195.226.151',   //Advantest_SD31:  
 	'10.195.225.157',   //Advantest_SD30:  
 	'10.195.225.51',    //Advantest_SD20:  
+	'10.195.225.225',	//es8
+	'10.195.226.155',	//es28
+	'10.195.226.161',	//es29
+	'10.195.226.252', //sd24
 	//SDSM--
 	'10.91.203.11',
 	'10.91.203.12',
@@ -76,7 +80,7 @@ if(cluster.isMaster) {
 } else {
 	process.on('message', host => {
 		getStatus(host);
-		setInterval(() => getStatus(host), 10 * 60 * 1000);
+		setInterval(() => getStatus(host), 5 * 60 * 1000);
 	});
 }
 

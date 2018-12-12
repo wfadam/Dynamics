@@ -11,7 +11,8 @@ function querySharepointLocationID(url) {
 	return new Promise((resolve, reject) => {
 		const options = Object.assign({ url }, auth.options);
 		httpntlm.get(options, (err, res) => {
-			if(res.body) {
+			if(err) return reject(err);
+			if(res && res.body) {
 				let found = res.body.match('<sharepointdocumentlocationid>({[0-9A-Z-]+})');
 				if(found) resolve(found[1]);
 				else reject(`Cannot find sharepointdocumentlocationid from ${url}`);
@@ -30,7 +31,8 @@ function querySharepointLocation(did) {
 			body: genPayload(did)
 		}, auth.options);
 		httpntlm.post(options, (err, res) => {
-			if(res.body) resolve(res.body);
+			if(err) return reject(err);
+			if(res && res.body) resolve(res.body);
 			else reject(`Cannot find sharepointdocumentlocation`);
 		});
 	});

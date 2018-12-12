@@ -12,7 +12,7 @@ const getDataURL = (otyp, uid) => `http://dynamics.sandisk.com/Dynamics/form/Dat
 const getPageURL = (otyp, uid) => `http://dynamics.sandisk.com/Dynamics/main.aspx?etc=${otyp}&id=%7b${uid}%7d&newWindow=true&pagetype=entityrecord`;
 
 function flatProps(...props) {
-	return obj => {
+	return (obj = {}) => {
 		let slimObj = {};
 		Object.keys(obj).forEach(key => {
 			slimObj[key] = props.map(p => obj[key][p]).toString();
@@ -21,13 +21,8 @@ function flatProps(...props) {
 	}
 }
 
-const clean = R.compose(
-	flatProps('value'),
-	filterKey(/^[^_]/)
-);
-
 function filterKey(pat = '') {
-	return obj => {
+	return (obj = {}) => {
 		let thin = {};
 		Object.keys(obj)
 			.filter(k => k.match(pat))
@@ -35,6 +30,11 @@ function filterKey(pat = '') {
 		return thin;
 	};
 }
+
+const clean = R.compose(
+	flatProps('value'),
+	filterKey(/^[^_]/)
+);
 
 async function fetchJson(otyp, uid) {
 	return new Promise((resolve, reject) => {
@@ -49,10 +49,25 @@ async function fetchJson(otyp, uid) {
 	});
 }
 
+//function clearEmptyValue(obj = {}) {
+//	const rtnObj = {};
+//	Object.keys(obj).forEach(k => {
+//		if(k && obj[k]) {
+//			rtnObj[k] = obj[k];
+//		}
+//	});
+//	return rtnObj;
+//}
+
+
 async function workOn({crn, otype, oid}) {
 	const [json, doc] = await Promise.all([fetchJson(otype, oid), getDocumentList(otype, oid)]);
-
 	const obj = clean(json); 
+
+	if(Number.isNaN(Date.parse(obj['modifiedon']))) {
+		return console.error('bad object', obj);
+	}
+
 	obj['DOC'] = JSON.stringify(doc);
 	obj['URL'] = getPageURL(otype, oid);
 
@@ -101,7 +116,8 @@ if(require.main === module) {
 	(async () => {
 		try {
 			//await workOn({ crn: 'SCR-1142.0', otype: 10173, oid: '946BCB90-E274-E811-80E6-005056AB451F', age: 683400000 });
-			await workOn({ crn: 'TCR-23475.0', otype: 10061, oid: '93b2cf9c-949e-e811-80e6-005056ab451f', age: 783400000 });
+			await workOn({ crn: 'TCR-24420.5', otype: 10061, oid: '6961ccb0-55e6-e811-80e8-005056ab4520', age: 783400000 });
+			
 		} catch(e) {
 			console.error(e);
 		}

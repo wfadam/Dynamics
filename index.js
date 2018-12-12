@@ -22,7 +22,7 @@ async function look4NewJob() {
 			if(cnt > 0) {
 				let msg = JSON.stringify(job);
 				await client.saddAsync('JOBS:CR', msg);
-				console.log(`Observed changed ${msg}`);
+				console.log(`Observed ${msg}`);
 			}
 		}
 		client.quit();
@@ -30,7 +30,7 @@ async function look4NewJob() {
 	} catch(e) {
 		console.error(e);
 	}
-	setTimeout(look4NewJob, 20 * ONE_SECOND);
+	setTimeout(look4NewJob, 15 * ONE_SECOND);
 }
 
 async function look4Job() {
