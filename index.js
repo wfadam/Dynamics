@@ -10,6 +10,29 @@ const numThd = require('os').cpus().length * 2;
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
 
+//async function look4NewJob() {
+//	try {
+//		const jobs = await Promise.all([getJobs(10061), getJobs(10173)]);
+//		const flatJobs = [...jobs[0], ...jobs[1]]; //console.log(flatJobs);
+//
+//		const client = redisClient();
+//		for(let job of flatJobs) {
+//			let {crn, otype, oid, age} = job;
+//			let cnt = await client.zaddAsync('RECORD:CR', 'CH', age, JSON.stringify({crn, otype, oid}));
+//			if(cnt > 0) {
+//				let msg = JSON.stringify(job);
+//				await client.saddAsync('JOBS:CR', msg);
+//				console.log(`Observed ${msg}`);
+//			}
+//		}
+//		client.quit();
+//
+//	} catch(e) {
+//		console.error(e);
+//	}
+//	setTimeout(look4NewJob, 15 * ONE_SECOND);
+//}
+
 async function look4NewJob() {
 	try {
 		const jobs = await Promise.all([getJobs(10061), getJobs(10173)]);
@@ -21,6 +44,14 @@ async function look4NewJob() {
 			let cnt = await client.zaddAsync('RECORD:CR', 'CH', age, JSON.stringify({crn, otype, oid}));
 			if(cnt > 0) {
 				let msg = JSON.stringify(job);
+
+				setTimeout(async () => {
+					const lazyClient = redisClient();
+					await lazyClient.saddAsync('JOBS:CR', msg);
+					lazyClient.quit();
+					console.log(`look back again ${msg}`);
+				}, 60 * ONE_SECOND);
+
 				await client.saddAsync('JOBS:CR', msg);
 				console.log(`Observed ${msg}`);
 			}

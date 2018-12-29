@@ -16,7 +16,12 @@ const offsetDate = days => {
 const toJson = () => arr => arr.map(s => JSON.parse(s));
 const join = sep => arr => arr.map(tcr => tcr.join(sep));
 const delEmptyColumn = () => arr => arr.map(cols => cols.filter(col => col));
+const fmtCRN = (msg = '') => {
+			let arr = msg.match(/^([TS]CR-\d+)(\.\w+)?(\.\d+)$/);
+			return arr ? arr[1] + arr[3] : '';
+		};
 const addLocalLink = path => val => `<a href="/${path}/${encodeURIComponent(val)}">${val}</a>`;
+const addCRLink = val => `<a href="/tcr/${encodeURIComponent(fmtCRN(val))}">${val}</a>`;
 
 function filterByString(msg) {
 	const regex = new RegExp(`${msg}`, 'i');
@@ -117,7 +122,7 @@ const filter = (fn4 = val => val, fn3 = val => val, fn2 = val => val, fn1 = val 
 	join(' | '),
 	delEmptyColumn(),
 	flatProps('zsd_commitdate', 'crn', 'zsd_testtimetestflow', 'createdby', 'zsd_stage', 'zsd_screquestname', 'zsd_productdescription', 'zsd_tcrrequestname', 'zsd_assignedte', 'modifiedon'),
-	mapProps(addLocalLink('tcr'), 'crn'),
+	mapProps(addCRLink, 'crn'),
 	mapProps(addLocalLink('queue'), 'zsd_assignedte', 'createdby'),
 	mapProps(colorMatch(/assigned|submitted|manager/i, '#00FF00;'), 'zsd_stage'), 
 	mapProps(colorMatch(/development/i, '#FF00FF;'), 'zsd_stage'), 
@@ -248,9 +253,8 @@ async function getLab(lastDays = 3) {
 function embedLink(str) {
 	return str.slice(0)
 		.replace(/SCR[ ]*&#8211;[ ]*/ig, 'SCR-')
-		.replace(/SCR[-]*(\d+)[.p]*(\d+)*/ig, `<a href="/scr/SCR-$1.$2">$&</a>`)
-		.replace(/TCR[ ]*&#8211;[ ]*/ig, 'TCR-')
-		.replace(/TCR[-]*(\d+)[.p]*(\d+)*/ig, `<a href="/tcr/TCR-$1.$2">$&</a>`);
+		.replace(/SCR[-]?(\d+)[\.p](\d+)/ig, `<a href="/scr/SCR-$1.$2">$&</a>`)
+		.replace(/TCR-(\d+)\.(\d+)*/ig, `<a href="/tcr/TCR-$1.$2">$&</a>`);
 }
 
 function takeFirstInProp(prop) {
@@ -272,12 +276,12 @@ function slice(st, sp) {
 const toZipFileName = (str = '') => path.basename(path.dirname(str));
 const pickUserName = (str = '') => str.replace(/(\/(home|kei|fsdiag|sandbox|users))*/, '').split('/')[1];
 const pickUserNZipName = (str = '') => [pickUserName(str), toZipFileName(str)].join('/');
-const sortByScrNum = (arr = []) => arr.sort((a, b) => scrNum(b['tb']) - scrNum(a['tb']));
+const dummyFn = val => val;
 
-const tbCommonPipe = (fn5 = val => val, fn4 = val => val, fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compose(
+const tbCommonPipe = (fn5 = dummyFn, fn4 = dummyFn, fn3 = dummyFn, fn2 = dummyFn, fn1 = dummyFn) => R.compose(
 		join(' | '),
 		delEmptyColumn(),
-		flatProps('time', 'tb', 'pwd'),  //'host'
+		flatProps('time', 'pwd'),  //'host'
 		fn5,
 		fn4,
 		fn3,
@@ -297,40 +301,29 @@ function combine2Json(arr = []) {
 	return jArr;
 }
 
-function scrNum(str = '') {
-	const obj = str.match(/(scr([0-9]+))(p([0-9]+))*/i);
-	if(! obj) return Number('0');
-	const intChar = obj['2'];
-	const floatChar = obj['4'] || '0';
-	return Number(`${intChar}.${floatChar}`);
-};
-
-async function getNewTb(lastDays = 15) {
+async function getNewTb() {
 	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:TB', Date.parse(offsetDate(-lastDays)), Date.now(), 'withscores'); 
+	const arr = await client.zrevrangeAsync('LIST:TB', 0, -1); 
 	client.quit();
 
-	return tbCommonPipe(
-		mapProps(addLocalLink('tb'), 'tb'),
-		//mapProps(embedLink, 'tb'),
-		mapProps(pickUserNZipName, 'pwd'),
-		sortByScrNum,
-		takeFirstInProp('tb'),
-		includesInProps('(scr([0-9]+))(p([0-9]+))*', 'tb')
-	)(arr);
+	return arr.map(tb => {
+		let result = tb.match(/_scr(\d+)[^_]*p(\d+)/i)
+		let scr = result ? `SCR-${result[1]}.${result[2]}` : '';
+		return scr ? `${addLocalLink('scr')(scr)} | ${addLocalLink('tb')(tb)}` : addLocalLink('tb')(tb);
+	});
 }
 
-async function getTb(name = '', lastDays = 15) {
+async function getTb(name = '', lastDays = 30) {
 	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:TB', Date.parse(offsetDate(-lastDays)), Date.now(), 'withscores'); 
+	//const arr = await client.zrangebyscoreAsync(name, Date.parse(offsetDate(-lastDays)), Date.now(), 'withscores'); 
+	const arr = await client.zrangeAsync(name, 0, -1, 'withscores'); 
 	client.quit();
 
-	return tbCommonPipe(
-		//mapProps(replace(/(\/(home|kei|fsdiag|sandbox|users))*/, ''), 'pwd'),
+	const descArr = tbCommonPipe(
 		mapProps(pickUserNZipName, 'pwd'),
-		mapProps(embedLink, 'tb'),
-		includesInProps(name, 'tb', 'pwd')
+		includesInProps(/_(1znm|1ynm|bics)/i, 'pwd')
 	)(arr).reverse();
+	return descArr;
 }
 
 exports.getDayOfst = () => dayOfst;

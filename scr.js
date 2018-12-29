@@ -118,15 +118,18 @@ const getStatus = async host => {
 			return;
 		}
 
-		const proName = pro.replace('.class', '').replace(/javaapi[./]/, '');
+		const proName = pro.replace('.class', '').replace(/javaapi./, '');
 		const msec = Date.now();
-		const scoreMem = [];
-		currFlow.map(tb => JSON.stringify({host, tb, proName, pwd})).forEach(s => scoreMem.push(msec, s));
 
 		const client = redisClient();
-		const rtn = await client.zaddAsync('TIMELINE:TB', 'NX', ...scoreMem); 
-		console.log({host, rtn, time: new Date().toLocaleString()});
+		await Promise.all(currFlow.map(async tb => await client.zaddAsync(tb, 'NX', msec, JSON.stringify({host, proName, pwd})))); 
+		await Promise.all(currFlow.map(async tb => {
+			let arr = tb.match(/_scr(\d+)/i);
+			let scrNum = arr ? arr[1] : 0;
+			return await client.zaddAsync('LIST:TB', scrNum, tb);
+		}));
 		client.quit();
+		console.log({host, time: new Date().toLocaleString()});
 
 	} catch(e) {
 		return console.error({host, e});

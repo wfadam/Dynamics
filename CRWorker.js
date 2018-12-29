@@ -65,7 +65,7 @@ async function workOn({crn, otype, oid}) {
 	const obj = clean(json); 
 
 	if(Number.isNaN(Date.parse(obj['modifiedon']))) {
-		return console.error('bad object', obj);
+		return console.error('bad object', crn, obj);
 	}
 
 	obj['DOC'] = JSON.stringify(doc);

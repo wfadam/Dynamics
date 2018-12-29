@@ -46,24 +46,20 @@ if (cluster.isMaster) {
 	}
 
 	const openAttrs = {
-		'zsd_category': 'CATEGORY',
+		'zsd_tcrnumber': 'TCR',
+		'zsd_scrnumber': 'SCR',
+		'URL': 'URL',
+		'zsd_testtimetestflow': 'FLOW',
+		'zsd_testprogamname': 'PROGRAM',
+		'zsd_testartdate': 'START',
+		'zsd_teenddate': 'STOP',
 		'zsd_tcrrequestname': 'TITLE',
 		'zsd_screquestname': 'SCR_TITLE',
 		'zsd_productdescription': 'PRODUCT',
 		'zsd_packagetype': 'PACKAGE',
-		'zsd_testprogamname': 'PROGRAM',
-		'zsd_testtimetestflow': 'FLOW',
-		'zsd_testtime': 'TT',
-		'zsd_currentstagename': 'STAGE',
-		'statuscode': 'STATUS',
-		'zsd_stagestatus': 'PROGRESS',
-		'URL': 'URL',
-		'zsd_releasetype': 'RELEASE',
-		'zsd_detailscomments': 'REQUEST',
 		'zsd_referencebasetestprogramlink': 'BASE_PRO',
+		'zsd_detailscomments': 'REQUEST',
 		'zsd_sourcecodelink': 'OUT_PRO',
-		'zsd_tcrnumber': 'TCR',
-		'zsd_scrnumber': 'SCR',
 		'createdby': 'CREATEDBY',
 		'ownerid': 'OWNER',
 		'zsd_assignedte': 'TE',
@@ -71,10 +67,14 @@ if (cluster.isMaster) {
 		'zsd_productengineer': 'SCR_PE',
 		'zsd_assignedtpe': 'PE',
 		'zsd_assignedtotpe': 'TPE',
+		'zsd_testtime': 'TT',
+		'zsd_category': 'CATEGORY',
+		'zsd_currentstagename': 'STAGE',
+		'statuscode': 'STATUS',
+		'zsd_stagestatus': 'PROGRESS',
+		'zsd_releasetype': 'RELEASE',
 		'zsd_commitdate': 'COMMIT',
 		'zsd_forecastdate': 'FORECAST',
-		'zsd_testartdate': 'START',
-		'zsd_teenddate': 'STOP',
 		'modifiedon': 'MODT',
 		'DOC': 'DOC',
 	};
@@ -114,9 +114,8 @@ if (cluster.isMaster) {
 	function embedLink(str) {
 		return str.slice(0)
 			.replace(/SCR[ ]*&#8211;[ ]*/ig, 'SCR-')
-			.replace(/SCR[-]*(\d+)[.p]*(\d+)*/ig, `<a href="/scr/SCR-$1.$2">$&</a>`)
-			.replace(/TCR[ ]*&#8211;[ ]*/ig, 'TCR-')
-			.replace(/TCR[-]*(\d+)[.p]*(\d+)*/ig, `<a href="/tcr/TCR-$1.$2">$&</a>`);
+			.replace(/SCR[-]?(\d+)[\.p](\d+)/ig, `<a href="/scr/SCR-$1.$2">$&</a>`)
+			.replace(/TCR-(\d+)\.(\d+)*/ig, `<a href="/tcr/TCR-$1.$2">$&</a>`);
 	}
 
 	function addBorder(str) {
