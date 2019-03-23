@@ -6,7 +6,7 @@ const express = require('express');
 const app = express();
 const redis = require("redis");
 const router = express.Router();
-const client = redis.createClient(6380, 'localhost');
+const client = redis.createClient(6381, 'localhost');
 const entities = require("entities");
 const path = require('path');
 const R = require('ramda');
@@ -26,7 +26,7 @@ if (cluster.isMaster) {
 } else {
 
 	router.use((req, res, next) => {
-		saveIP(req);
+//		saveIP(req);
 		console.log([req.method, req.url, req.ip, `Worker[${cluster.worker.id}]`, (new Date()).toString()].join('  '));
 		next(); // make sure we go to the next routes and don't stop here
 	});
@@ -36,7 +36,7 @@ if (cluster.isMaster) {
 
 	function send(res, arr) {
 		res.send(arr.length > 0 
-			? `${arr.length} in ${Math.abs(getDayOfst())} days` + '<BR>' + arr.join('<BR>')
+			? `${arr.length}<BR>${arr.join('<BR>')}`
 				: 'nothing');
 	}
 
@@ -46,13 +46,16 @@ if (cluster.isMaster) {
 	}
 
 	const openAttrs = {
+		'NEWTB': 'NEWTB',
 		'zsd_tcrnumber': 'TCR',
 		'zsd_scrnumber': 'SCR',
 		'URL': 'URL',
 		'zsd_testtimetestflow': 'FLOW',
 		'zsd_testprogamname': 'PROGRAM',
 		'zsd_testartdate': 'START',
+		'zsd_speteam1startdate': 'CDTSTART',
 		'zsd_teenddate': 'STOP',
+		'zsd_speteam1enddate': 'CDTSTOP',
 		'zsd_tcrrequestname': 'TITLE',
 		'zsd_screquestname': 'SCR_TITLE',
 		'zsd_productdescription': 'PRODUCT',
@@ -60,12 +63,15 @@ if (cluster.isMaster) {
 		'zsd_referencebasetestprogramlink': 'BASE_PRO',
 		'zsd_detailscomments': 'REQUEST',
 		'zsd_sourcecodelink': 'OUT_PRO',
+		'zsd_team1toteam2msflink': 'OUT_PRO2',
 		'createdby': 'CREATEDBY',
 		'ownerid': 'OWNER',
 		'zsd_assignedte': 'TE',
 		'zsd_assignedsdsste': 'TE2',
+		'zsd_speassignedto': 'CDTTE',
 		'zsd_productengineer': 'SCR_PE',
 		'zsd_assignedtpe': 'PE',
+		'zsd_assignedspe': 'CDTTE2',
 		'zsd_assignedtotpe': 'TPE',
 		'zsd_testtime': 'TT',
 		'zsd_category': 'CATEGORY',
@@ -74,6 +80,7 @@ if (cluster.isMaster) {
 		'zsd_stagestatus': 'PROGRESS',
 		'zsd_releasetype': 'RELEASE',
 		'zsd_commitdate': 'COMMIT',
+		'zsd_team1commitdate': 'CSTCOMMIT',
 		'zsd_forecastdate': 'FORECAST',
 		'modifiedon': 'MODT',
 		'DOC': 'DOC',
@@ -130,9 +137,11 @@ if (cluster.isMaster) {
 	const trans = R.compose(
 		mapProps(color('#FF00FF;'), 'PROGRAM', 'FLOW'),
 		mapProps(addLocalLink('tcr'), 'TCR'),
-		mapProps(addLocalLink('queue'), 'CREATEDBY', 'TE', 'TE2', 'SCR_PE', 'PE', 'TPE', 'OWNER'),
+		mapProps(addLocalLink('queue'), 'CREATEDBY', 'TE', 'TE2', 'CDTTE2', 'SCR_PE', 'PE', 'TPE', 'CDTTE', 'OWNER'),
 		mapProps(addBorder, 'REQUEST'),
+		mapProps(addBorder, 'NEWTB'),
 		mapProps(embedLink, 'REQUEST'),
+		mapProps(embedLink, 'NEWTB'),
 		mapProps(addFileLink, 'DOC'),
 		mapProps(addLink('Dynamics'), 'URL')
 	);
@@ -181,7 +190,9 @@ if (cluster.isMaster) {
 	}
 
 	bindUrlFunc('/queue/:name', getQueue, 'name');
+	bindUrlFunc('/queue/:name/:daysBack', getQueue, 'name', 'daysBack');
 	bindUrlFunc('/list/:name', getQueueArray, 'name');
+	bindUrlFunc('/list/:name/:daysBack', getQueueArray, 'name', 'daysBack');
 	bindUrlFunc('/stage/:name', getStage, 'name');
 	bindUrlFunc('/stage/:name/:category', getStage, 'name', 'category');
 	bindUrlFunc('/tp/:name', getTp, 'name');

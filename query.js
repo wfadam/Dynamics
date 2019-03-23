@@ -3,13 +3,19 @@ const bluebird = require('bluebird');
 const path = require('path');
 bluebird.promisifyAll(redis.RedisClient.prototype);
 bluebird.promisifyAll(redis.Multi.prototype);
-const redisClient = () => redis.createClient(6380, 'localhost');
+const redisClient = () => redis.createClient(6381, 'localhost');
 const R = require('ramda');
-const dayOfst = -30;
+const DEFAULT_DAYS_BACK = 30;
+
+//const offsetDate = days => {
+//	let past = new Date();
+//	past.setDate(past.getDate() + days);
+//	return past;
+//}
 
 const offsetDate = days => {
 	let past = new Date();
-	past.setDate(past.getDate() + days);
+	past.setDate(past.getDate() - Math.abs(days));
 	return past;
 }
 
@@ -121,9 +127,9 @@ function colorMatch(expStr, cc = '#DC143C;') {
 const filter = (fn4 = val => val, fn3 = val => val, fn2 = val => val, fn1 = val => val) => R.compose(
 	join(' | '),
 	delEmptyColumn(),
-	flatProps('zsd_commitdate', 'crn', 'zsd_testtimetestflow', 'createdby', 'zsd_stage', 'zsd_screquestname', 'zsd_productdescription', 'zsd_tcrrequestname', 'zsd_assignedte', 'modifiedon'),
+	flatProps('zsd_commitdate', 'crn', 'zsd_testtimetestflow', 'createdby', 'zsd_stage', 'zsd_screquestname', 'zsd_productdescription', 'zsd_tcrrequestname', 'zsd_assignedte', 'zsd_assignedspe', 'zsd_speassignedto', 'modifiedon'),
 	mapProps(addCRLink, 'crn'),
-	mapProps(addLocalLink('queue'), 'zsd_assignedte', 'createdby'),
+	mapProps(addLocalLink('queue'), 'zsd_assignedte', 'createdby', 'zsd_assignedspe', 'zsd_speassignedto'),
 	mapProps(colorMatch(/assigned|submitted|manager/i, '#00FF00;'), 'zsd_stage'), 
 	mapProps(colorMatch(/development/i, '#FF00FF;'), 'zsd_stage'), 
 	mapProps(replace(/in progress/ig, ''), 'zsd_stage'),
@@ -154,21 +160,25 @@ function timeDiff(str) {
 	return `${days}D${hours}h${mins}m ago`.replace(/^0D(0h)*/, '');
 }
 
-async function getQueue(people) {
+async function getQueue(people, daysBack = DEFAULT_DAYS_BACK) {
+	if(isNaN(daysBack)) return [];
+
 	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(daysBack)), Date.now()); 
 	client.quit();
 	const safeMsg = escapeChars(people);
 	return filter(
 		sortByProp('zsd_commitdate'),
-		matchInProps(safeMsg, 'ownerid' ,'createdby' ,'zsd_assignedte' ,'zsd_assignedtpe' ,'zsd_assignedsdsste' ,'zsd_assignedtotpe'),
+		matchInProps(safeMsg, 'ownerid' ,'createdby' ,'zsd_assignedte' ,'zsd_assignedtpe' ,'zsd_assignedsdsste' ,'zsd_assignedtotpe', 'zsd_assignedspe', 'zsd_speassignedto'),
 		takeLast()
 	)(arr);
 }
 
-async function getQueueArray(people) {
+async function getQueueArray(people, daysBack = DEFAULT_DAYS_BACK) {
+	if(isNaN(daysBack)) return [];
+
 	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(daysBack)), Date.now()); 
 	client.quit();
 	const safeMsg = escapeChars(people);
 	return R.compose(
@@ -185,7 +195,7 @@ async function getQueueArray(people) {
 
 async function getStage(msg, category = '(mt|bi|kgd)') {
 	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(DEFAULT_DAYS_BACK)), Date.now()); 
 	client.quit();
 	const safeMsg = escapeChars(msg);
 	return filter(
@@ -196,9 +206,9 @@ async function getStage(msg, category = '(mt|bi|kgd)') {
 	)(arr);
 }
 
-async function getTp(msg) {
+async function getTp(msg, daysBack = DEFAULT_DAYS_BACK) {
 	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(daysBack)), Date.now()); 
 	client.quit();
 	const safeMsg = escapeChars(msg);
 	return filter(
@@ -208,9 +218,9 @@ async function getTp(msg) {
 	)(arr);
 }
 
-async function getTitle(msg) {
+async function getTitle(msg, daysBack = DEFAULT_DAYS_BACK) {
 	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(daysBack)), Date.now()); 
 	client.quit();
 	const safeMsg = escapeChars(msg);
 	return filter(
@@ -221,9 +231,9 @@ async function getTitle(msg) {
 	)(arr);
 }
 
-async function getHistory(msg) {
+async function getHistory(msg, daysBack = DEFAULT_DAYS_BACK) {
 	const client = redisClient();
-	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(dayOfst)), Date.now()); 
+	const arr = await client.zrangebyscoreAsync('TIMELINE:CR', Date.parse(offsetDate(daysBack)), Date.now()); 
 	client.quit();
 	const safeMsg = escapeChars(msg);
 	return filter(
@@ -326,7 +336,7 @@ async function getTb(name = '', lastDays = 30) {
 	return descArr;
 }
 
-exports.getDayOfst = () => dayOfst;
+exports.getDayOfst = () => DEFAULT_DAYS_BACK;
 exports.getQueue = getQueue;
 exports.getQueueArray = getQueueArray;
 exports.getLab = getLab;
@@ -342,7 +352,8 @@ if(require.main === module) {
 		console.time('Query');
 		//console.log(await getQueue('Grace Liu'));
 		//console.log(await getTb('tb__437__SCREEN_column_pointer_VDD_p4m4_DDR_200MHz_scr997p1__nvcc'));
-		console.log(await getNewTb());
+		//console.log(await getNewTb());
+		console.log(await getQueue('Connie Chen'));
 		console.timeEnd('Query');
 		process.exit();
 	})();

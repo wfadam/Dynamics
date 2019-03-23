@@ -26,9 +26,9 @@ function toObj(otype, arr) {
 		if(isCRNum(fd)) {
 			let arr = fd.match(/^([TS]CR-\d+)(\.\w+)?(\.\d+)$/)
 			crn = arr[1] + arr[3];
-			if(arr[2]) {
-				console.log(`${fd} -> ${crn}`);
-			}
+			//if(arr[2]) {
+			//	console.log(`${fd} -> ${crn}`);
+			//}
 		}
 		if(isOID(fd)) oid = removeCurly(fd);
 		if(isDate(fd)) timeArr.push(fd);

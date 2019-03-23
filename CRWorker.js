@@ -5,6 +5,7 @@ bluebird.promisifyAll(redis.Multi.prototype);
 const options = require("./auth.js").options;
 const httpntlm = require('httpntlm');
 const {getDocumentList} = require('./sharePoint.js');
+const {queryNewTb} = require('./parseXml.js');
 const R = require('ramda');
 const redisClient = () => redis.createClient(6380, 'localhost');
 
@@ -36,6 +37,15 @@ const clean = R.compose(
 	filterKey(/^[^_]/)
 );
 
+function xmlPath(obj = {}) {
+	for(let key in obj) {
+		if(key.toLowerCase().endsWith('.xml')) {
+			return obj[key];
+		}
+	}
+	return '';
+}
+
 async function fetchJson(otyp, uid) {
 	return new Promise((resolve, reject) => {
 		const url = getDataURL(otyp, uid);
@@ -49,23 +59,18 @@ async function fetchJson(otyp, uid) {
 	});
 }
 
-//function clearEmptyValue(obj = {}) {
-//	const rtnObj = {};
-//	Object.keys(obj).forEach(k => {
-//		if(k && obj[k]) {
-//			rtnObj[k] = obj[k];
-//		}
-//	});
-//	return rtnObj;
-//}
-
-
 async function workOn({crn, otype, oid}) {
 	const [json, doc] = await Promise.all([fetchJson(otype, oid), getDocumentList(otype, oid)]);
 	const obj = clean(json); 
 
 	if(Number.isNaN(Date.parse(obj['modifiedon']))) {
 		return console.error('bad object', crn, obj);
+	}
+
+	const xmlUrl = xmlPath(doc);
+	if(xmlUrl) {
+		let arr = await queryNewTb(xmlUrl);
+		obj['NEWTB'] = arr.join('<BR>');
 	}
 
 	obj['DOC'] = JSON.stringify(doc);
@@ -95,6 +100,8 @@ function summarize(crn, obj = {}) {
 		'zsd_assignedtotpe',
 		'zsd_assignedtpe',
 		'zsd_assignedsdsste',
+		'zsd_assignedspe',
+		'zsd_speassignedto',
 		'zsd_testtime',
 		'zsd_testprogamname',
 		'zsd_programimpact',
@@ -116,8 +123,10 @@ if(require.main === module) {
 	(async () => {
 		try {
 			//await workOn({ crn: 'SCR-1142.0', otype: 10173, oid: '946BCB90-E274-E811-80E6-005056AB451F', age: 683400000 });
-			await workOn({ crn: 'TCR-24420.5', otype: 10061, oid: '6961ccb0-55e6-e811-80e8-005056ab4520', age: 783400000 });
-			
+			//await workOn({ crn: 'TCR-24420.5', otype: 10061, oid: '6961ccb0-55e6-e811-80e8-005056ab4520', age: 783400000 });
+			await workOn({ crn: 'TCR-26555.0', otype: 10061, oid: '463391b9-9839-e911-80e9-005056ab4520', age: 783400000 });
+			//await workOn({ crn: 'TCR-24168.3', otype: 10061, oid: '047ee292-a018-e911-80e9-005056ab451f', age: 783400000 });
+
 		} catch(e) {
 			console.error(e);
 		}
