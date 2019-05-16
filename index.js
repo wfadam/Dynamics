@@ -9,10 +9,30 @@ const {getJobs} = require('./crawl.js');
 const numThd = require('os').cpus().length;
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
+const ONE_DAY = 24 * 3600 * 1000;
 
 const client = redisClient();
 const JOB_NEW = 'JOBS:NEW:CR';
 const JOB = 'JOBS:CR';
+
+
+async function renewJob(winBegin = -60, winEnd = -7) {
+	try {
+		let now = Date.now();
+		let ofstBegin = now + winBegin * ONE_DAY;
+		let ofstEnd = now + winEnd * ONE_DAY;
+
+		let arr = await client.zrangebyscoreAsync('RECORD:CR', ofstBegin, ofstEnd);
+		for(let msg of arr) {
+			client.saddAsync(JOB, msg); //console.log(`Observed ${msg}`);
+		}
+		console.log(`renewed ${arr.length} CRs`);
+
+	} catch(e) {
+		console.error(e);
+	}
+	setTimeout(renewJob, 180 * ONE_MINUTE);
+}
 
 async function look4NewJob() {
 	try {
@@ -32,6 +52,7 @@ async function look4NewJob() {
 	}
 	setTimeout(look4NewJob, 10 * ONE_SECOND);
 }
+
 
 async function look4Job() {
 	try {
@@ -56,22 +77,17 @@ function assignWorker(jobKind = '', delay = 0) {
 			return;
 		}
 
-		if(delay === 0) {
-			await workOn(JSON.parse(msg));
-		}
+		setTimeout(async () => {
+			try {
+				await workOn(JSON.parse(msg))
+			} catch(e) { // bad json 
+				console.error(e);
+			}
 
-		if(delay > 0) {
-			setTimeout(() => {
-				try {
-					workOn(JSON.parse(msg))
-				} catch(e) { // in case parsing bad json 
-					console.error(e);
-				}
-			}, delay);
-			console.log(`Delay ${delay} ms to work on ${msg}`);
-		}
+			setTimeout(worker, 0);
 
-		setTimeout(worker, 0);
+		}, Math.max(delay, 0));
+
 	}
 
 	return worker;
@@ -82,17 +98,19 @@ function assignWorker(jobKind = '', delay = 0) {
 if (cluster.isMaster) {
 
 	look4NewJob();
-	look4Job();
+	renewJob();
+	//look4Job();
 
 	for (let i = 0; i < numThd; i++) {
 		cluster.fork();
 	}
 
 } else {
-	console.log(`Created worker[${process.pid}]`, new Date());
-	assignWorker(JOB_NEW, 5 * ONE_SECOND)();
-	assignWorker(JOB)();
-	assignWorker(JOB)();
+		console.log(`Created worker[${process.pid}]`, new Date());
+		assignWorker(JOB_NEW, 5 * ONE_SECOND)();
+		assignWorker(JOB)();
+		assignWorker(JOB)();
+		assignWorker(JOB)();
 }
 
 

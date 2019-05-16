@@ -1,7 +1,7 @@
 const cheerio = require('cheerio');
 const options = require("./auth.js").options;
 const httpntlm = require('httpntlm');
-const getAge = (...strs) => Math.abs(Date.parse(strs[0]) - Date.parse(strs[1]));
+const getAge = (...strs) => Math.max(Date.parse(strs[0]), Date.parse(strs[1]));
 const url = otype => `http://dynamics.sandisk.com/Dynamics/_root/homepage.aspx?etc=${otype}&pagemode=iframe`;
 const isDate = str => str.match(/^\d+/) && str.match(/ (AM|PM)$/);
 //const isCRNum = str => str.match(/^[TS]CR-\d+\.\d+$/);
